@@ -92,6 +92,12 @@ static void owr_window_registry_init(OwrWindowRegistry *window_registry)
     priv->registry_hash_table = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, g_free);
 }
 
+/**
+ * owr_window_registry_register:
+ * @registry:
+ * @tag:
+ * @handle: (transfer none)(type OwrWindowHandle):
+ */
 void owr_window_registry_register(OwrWindowRegistry *window_registry,
     const gchar *tag, gpointer handle)
 {
@@ -205,7 +211,9 @@ guintptr _owr_window_registry_lookup(OwrWindowRegistry *window_registry,
 /**
  * owr_window_registry_get:
  *
- * Returns: (transfer none):
+ * Returns the global window registry singleton.
+ *
+ * Returns: (transfer none): the #OwrWindowRegistry
  */
 OwrWindowRegistry *owr_window_registry_get(void)
 {
