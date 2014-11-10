@@ -44,10 +44,6 @@
 
 #include <gst/gst.h>
 
-#ifdef OWR_STATIC
-#include <gstnice.h>
-#endif
-
 #ifdef __APPLE__
 #include <TargetConditionals.h>
 #endif
@@ -73,6 +69,7 @@ GST_PLUGIN_STATIC_DECLARE(coreelements);
 GST_PLUGIN_STATIC_DECLARE(erdtls);
 GST_PLUGIN_STATIC_DECLARE(inter);
 GST_PLUGIN_STATIC_DECLARE(mulaw);
+GST_PLUGIN_STATIC_DECLARE(nice);
 GST_PLUGIN_STATIC_DECLARE(opengl);
 GST_PLUGIN_STATIC_DECLARE(openh264);
 GST_PLUGIN_STATIC_DECLARE(opus);
@@ -195,6 +192,7 @@ void owr_init()
     GST_PLUGIN_STATIC_REGISTER(erdtls);
     GST_PLUGIN_STATIC_REGISTER(inter);
     GST_PLUGIN_STATIC_REGISTER(mulaw);
+    GST_PLUGIN_STATIC_REGISTER(nice);
     GST_PLUGIN_STATIC_REGISTER(opengl);
     GST_PLUGIN_STATIC_REGISTER(openh264);
     GST_PLUGIN_STATIC_REGISTER(opus);
@@ -228,8 +226,6 @@ void owr_init()
     GST_PLUGIN_STATIC_REGISTER(ercolorspace);
 #endif
 
-    gst_element_register(NULL, "nicesrc", GST_RANK_NONE, GST_TYPE_NICE_SRC);
-    gst_element_register(NULL, "nicesink", GST_RANK_NONE, GST_TYPE_NICE_SINK);
 #endif
 
     owr_main_context_is_external = !!owr_main_context;
