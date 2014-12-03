@@ -37,7 +37,7 @@ G_BEGIN_DECLS
 
 #define OWR_UNUSED(x) (void)x
 
-void _owr_require_symbols(void);
+int _owr_require_symbols(void);
 OwrCodecType _owr_caps_to_codec_type(GstCaps *caps);
 
 G_END_DECLS
