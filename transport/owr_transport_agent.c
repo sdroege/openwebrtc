@@ -299,6 +299,7 @@ static void owr_transport_agent_init(OwrTransportAgent *transport_agent)
     g_return_if_fail(_owr_is_initialized());
 
     priv->nice_agent = nice_agent_new(_owr_get_main_context(), NICE_COMPATIBILITY_RFC5245);
+    g_print("nice agent %p %p\n", transport_agent, priv->nice_agent);
     g_object_bind_property(transport_agent, "ice-controlling-mode", priv->nice_agent,
         "controlling-mode", G_BINDING_SYNC_CREATE);
     g_signal_connect(G_OBJECT(priv->nice_agent), "new-candidate-full",
@@ -1261,6 +1262,7 @@ static GstPadProbeReturn nice_src_pad_block(GstPad *pad, GstPadProbeInfo *info, 
         gst_object_unref(parent);
         g_mutex_unlock(&transport_agent->priv->sessions_lock);
 
+        g_print("blocked %p %u %u\n", transport_agent, stream_id, component_id);
         //on_new_selected_pair(NULL, stream_id, component_id, NULL, NULL, transport_agent);
     } else {
         g_mutex_unlock(&transport_agent->priv->sessions_lock);
@@ -1481,6 +1483,7 @@ static void on_new_selected_pair(NiceAgent *nice_agent, guint stream_id, guint c
     media_session = get_media_session(transport_agent, stream_id);
     g_return_if_fail(OWR_IS_MEDIA_SESSION(media_session));
 
+    g_print("new selected pair %p %p %p %u %u\n", transport_agent, media_session, nice_agent, stream_id, component_id);
     g_mutex_lock(&transport_agent->priv->sessions_lock);
     pending_session_info = g_hash_table_lookup(transport_agent->priv->pending_sessions, GUINT_TO_POINTER(stream_id));
     if (pending_session_info) {
@@ -1554,6 +1557,8 @@ on_dtls_enc_key_set(GstElement *dtls_srtp_enc, AgentAndSessionIdPair *data)
 
     media_session = get_media_session(transport_agent, stream_id);
     g_return_if_fail(media_session);
+
+    g_print("key set %p %p %p %u\n", transport_agent, media_session, dtls_srtp_enc, stream_id);
 
     /* Once we have the key, the DTLS handshake is done and we can start
      * sending data here
