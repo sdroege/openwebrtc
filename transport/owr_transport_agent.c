@@ -837,7 +837,7 @@ static gboolean add_media_session(GHashTable *args)
     _owr_session_set_on_remote_candidate(OWR_SESSION(media_session),
         g_cclosure_new_object_swap(G_CALLBACK(on_new_remote_candidate), G_OBJECT(transport_agent)));
 
-    pending_session_info = g_new0 (PendingSessionInfo, 1);
+    pending_session_info = g_new0(PendingSessionInfo, 1);
 
     prepare_transport_bin_receive_elements(transport_agent, stream_id, rtcp_mux, pending_session_info);
     prepare_transport_bin_send_elements(transport_agent, stream_id, rtcp_mux, pending_session_info);
@@ -1280,7 +1280,7 @@ static void prepare_transport_bin_receive_elements(OwrTransportAgent *transport_
     GstPad *rtp_src_pad, *rtcp_src_pad;
     GstPad *nice_src_pad;
     gchar *rtpbin_pad_name;
-    gboolean linked_ok;
+    gboolean synced_ok, linked_ok;
     GstElement *receive_input_bin;
     gchar *bin_name;
     AgentAndSessionIdPair *agent_and_session_id_pair;
@@ -1311,7 +1311,8 @@ static void prepare_transport_bin_receive_elements(OwrTransportAgent *transport_
     pending_session_info->nice_src_block_rtp = gst_pad_add_probe(nice_src_pad, GST_PAD_PROBE_TYPE_BLOCK | GST_PAD_PROBE_TYPE_BUFFER | GST_PAD_PROBE_TYPE_BUFFER_LIST, (GstPadProbeCallback)nice_src_pad_block, agent_and_session_id_pair, (GDestroyNotify) g_free);
     gst_object_unref(nice_src_pad);
 
-    gst_element_sync_state_with_parent(nice_element);
+    synced_ok = gst_element_sync_state_with_parent(nice_element);
+    g_warn_if_fail(synced_ok);
 
     rtp_src_pad = gst_element_get_static_pad(dtls_srtp_bin, "rtp_src");
     ghost_pad_and_add_to_bin(rtp_src_pad, receive_input_bin, "rtp_src");
@@ -1331,10 +1332,11 @@ static void prepare_transport_bin_receive_elements(OwrTransportAgent *transport_
         agent_and_session_id_pair->transport_agent = transport_agent;
         agent_and_session_id_pair->session_id = stream_id;
         nice_src_pad = gst_element_get_static_pad(nice_element, "src");
-    pending_session_info->nice_src_block_rtcp = gst_pad_add_probe(nice_src_pad, GST_PAD_PROBE_TYPE_BLOCK | GST_PAD_PROBE_TYPE_BUFFER | GST_PAD_PROBE_TYPE_BUFFER_LIST, (GstPadProbeCallback)nice_src_pad_block, agent_and_session_id_pair, (GDestroyNotify) g_free);
+        pending_session_info->nice_src_block_rtcp = gst_pad_add_probe(nice_src_pad, GST_PAD_PROBE_TYPE_BLOCK | GST_PAD_PROBE_TYPE_BUFFER | GST_PAD_PROBE_TYPE_BUFFER_LIST, (GstPadProbeCallback)nice_src_pad_block, agent_and_session_id_pair, (GDestroyNotify) g_free);
         gst_object_unref(nice_src_pad);
 
-        gst_element_sync_state_with_parent(nice_element);
+        synced_ok = gst_element_sync_state_with_parent(nice_element);
+        g_warn_if_fail(synced_ok);
 
         rtcp_src_pad = gst_element_get_static_pad(dtls_srtp_bin, "rtp_src");
         ghost_pad_and_add_to_bin(rtcp_src_pad, receive_input_bin, "rtcp_src");
