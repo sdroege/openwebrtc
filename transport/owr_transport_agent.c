@@ -812,6 +812,7 @@ static gboolean add_media_session(GHashTable *args)
 
     g_object_get(media_session, "rtcp-mux", &rtcp_mux, NULL);
     stream_id = nice_agent_add_stream(transport_agent->priv->nice_agent, rtcp_mux ? 1 : 2);
+    g_print ("%p: add stream %u\n", transport_agent, stream_id);
     if (!stream_id) {
         g_warning("Failed to add media session.");
         goto end;
@@ -853,8 +854,13 @@ static gboolean add_media_session(GHashTable *args)
         }
     }
 
-    if (!transport_agent->priv->deferred_helper_server_adds)
+    state_change_status = gst_element_set_state(transport_agent->priv->pipeline, GST_STATE_PLAYING);
+    g_warn_if_fail(state_change_status != GST_STATE_CHANGE_FAILURE);
+
+    if (!transport_agent->priv->deferred_helper_server_adds) {
+        g_print ("%p gather %u\n", transport_agent, stream_id);
         nice_agent_gather_candidates(transport_agent->priv->nice_agent, stream_id);
+    }
 
     /* stream_id is used as the rtpbin session id */
     g_signal_emit_by_name(transport_agent->priv->rtpbin, "get-internal-session", stream_id, &session);
@@ -867,9 +873,6 @@ static gboolean add_media_session(GHashTable *args)
         on_new_remote_candidate(transport_agent, FALSE, OWR_SESSION(media_session));
     if (_owr_session_get_forced_remote_candidates(OWR_SESSION(media_session)))
         on_new_remote_candidate(transport_agent, TRUE, OWR_SESSION(media_session));
-
-    state_change_status = gst_element_set_state(transport_agent->priv->pipeline, GST_STATE_PLAYING);
-    g_warn_if_fail(state_change_status != GST_STATE_CHANGE_FAILURE);
 
 end:
     g_object_unref(media_session);
@@ -1175,7 +1178,7 @@ static void prepare_transport_bin_send_elements(OwrTransportAgent *transport_age
     guint stream_id, gboolean rtcp_mux, PendingSessionInfo *pending_session_info)
 {
     GstElement *nice_element, *dtls_srtp_bin_rtp, *dtls_srtp_bin_rtcp = NULL;
-    gboolean linked_ok;
+    gboolean synced_ok, linked_ok;
     GstElement *send_output_bin;
     SendBinInfo *send_bin_info;
     gchar *bin_name;
@@ -1207,7 +1210,8 @@ static void prepare_transport_bin_send_elements(OwrTransportAgent *transport_age
     agent_and_session_id_pair->session_id = stream_id;
     g_signal_connect_data(dtls_srtp_bin_rtp, "on-key-set", G_CALLBACK(on_dtls_enc_key_set), agent_and_session_id_pair, (GClosureNotify) g_free, 0);
 
-    gst_element_sync_state_with_parent(nice_element);
+    synced_ok = gst_element_sync_state_with_parent(nice_element);
+    g_warn_if_fail(synced_ok);
 
     if (!rtcp_mux) {
         pending_session_info->nice_sink_rtcp = nice_element = add_nice_element(transport_agent, stream_id, TRUE, TRUE, send_output_bin);
@@ -1220,7 +1224,8 @@ static void prepare_transport_bin_send_elements(OwrTransportAgent *transport_age
         agent_and_session_id_pair->session_id = stream_id;
         g_signal_connect_data(dtls_srtp_bin_rtp, "on-key-set", G_CALLBACK(on_dtls_enc_key_set), agent_and_session_id_pair, (GClosureNotify) g_free, 0);
 
-        gst_element_sync_state_with_parent(nice_element);
+        synced_ok = gst_element_sync_state_with_parent(nice_element);
+        g_warn_if_fail(synced_ok);
     }
 
     send_bin_info = g_new(SendBinInfo, 1);
@@ -1401,6 +1406,17 @@ static gboolean emit_new_candidate(GHashTable *args)
             nice_candidate->password = password;
         else
             g_free(password);
+    }
+
+    {
+    gchar ipaddr[INET6_ADDRSTRLEN];
+
+    g_print ("%p local credentials %u %s %s\n", transport_agent, nice_candidate->stream_id, nice_candidate->username, nice_candidate->password);
+    nice_address_to_string (&nice_candidate->addr, ipaddr);
+        g_print ("%p \t%u %u %s,%u,%s,%u,%u\n", transport_agent, nice_candidate->stream_id, nice_candidate->component_id,
+        nice_candidate->foundation,
+        nice_candidate->priority,
+        ipaddr, nice_address_get_port (&nice_candidate->addr), nice_candidate->type);
     }
 
     owr_candidate = _owr_candidate_new_from_nice_candidate(nice_candidate);
@@ -1781,6 +1797,7 @@ static void on_new_remote_candidate(OwrTransportAgent *transport_agent, gboolean
     item = forced ? _owr_session_get_forced_remote_candidates(session) :
         _owr_session_get_remote_candidates(session);
     for (; item; item = item->next) {
+        gchar ipaddr[INET6_ADDRSTRLEN];
         nice_candidate = _owr_candidate_to_nice_candidate(OWR_CANDIDATE(item->data));
 
         if (!nice_candidate)
@@ -1804,11 +1821,22 @@ static void on_new_remote_candidate(OwrTransportAgent *transport_agent, gboolean
             nice_cands_rtp = g_slist_append(nice_cands_rtp, nice_candidate);
         else
             nice_cands_rtcp = g_slist_append(nice_cands_rtcp, nice_candidate);
+
+        nice_address_to_string (&nice_candidate->addr, ipaddr);
+        g_print ("%p: remote credentials %u %s %s\n", transport_agent, stream_id, nice_candidate->username, nice_candidate->password);
+        g_print ("%p \t%u %u %s,%u,%s,%u,%u\n", transport_agent, stream_id, nice_candidate->component_id,
+        nice_candidate->foundation,
+        nice_candidate->priority,
+        ipaddr, nice_address_get_port (&nice_candidate->addr), nice_candidate->type);
     }
 
     if (username && password) {
-        nice_agent_set_remote_credentials(transport_agent->priv->nice_agent, stream_id,
+        gboolean set_ok;
+
+        g_print ("%p: set remote credentials %u %s %s\n", transport_agent, stream_id, username, password);
+        set_ok = nice_agent_set_remote_credentials(transport_agent->priv->nice_agent, stream_id,
             username, password);
+        g_warn_if_fail (set_ok);
     }
 
     if (nice_cands_rtp) {
